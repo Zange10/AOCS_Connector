@@ -9,6 +9,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <math.h>
+#include "tcp_connect.h"
+
+#define SHMSZ sizeof(double)
+key_t key;
+int shmid;
+double *shm, *s;
+
 
 void destruct();
 
@@ -25,12 +33,6 @@ void wait_ms(int milliseconds) {
 
     while (nanosleep(&ts, &ts) == -1 && errno == EINTR);
 }
-
-#define SHMSZ sizeof(double)
-key_t key;
-int shmid;
-double *shm, *s;
-
 
 void init_connector() {
     // Generate a key for the shared memory segment
@@ -55,6 +57,7 @@ void init_connector() {
 }
 
 void destruct() {
+    close_socket();
     shm[0] = 0;
     // Detach the shared memory segment from our data space
     if (shmdt(shm) == -1) {
@@ -68,6 +71,7 @@ void destruct() {
 int main() {
     int connection = 1;
     init_connector();
+    init_socket();
     atexit(destruct);
     signal(SIGINT, signal_handler); // register handler for Ctrl+C
     signal(SIGTERM, signal_handler); // register handler for termination signal
@@ -75,19 +79,25 @@ int main() {
     s = shm;
     s[0] = 1;
 
-    double p = 0, y = 0, r = 0;
+    double pitch = 0, yaw = 0, roll = 0, x = 2, y = 0, z = 0;
 
     double i = 0.01;
 
     while(connection) {
         i += 0.0001;
         // Write some values to the shared memory segment
-        r = i;
-        y = i/2;
-        s[1] = p;
-        s[2] = y;
-        s[3] = r;
-        wait_ms(0.001);
+        roll = i;
+        yaw = i / 2;
+        y = 0.3*sin(i*10);
+        z = 0.4*cos(i*10);
+        s[1] = pitch;
+        s[2] = yaw;
+        s[3] = roll;
+        s[4] = x;
+        s[5] = y;
+        s[6] = z;
+
+        wait_ms(1);
     }
 
     return 0;
